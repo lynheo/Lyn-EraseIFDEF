@@ -69,7 +69,7 @@ func parseCommandLine() ([]string, ProcInfo, bool) {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(1)
 
 	fileList, procInfo, isSuccess := parseCommandLine()
 	if isSuccess == false {

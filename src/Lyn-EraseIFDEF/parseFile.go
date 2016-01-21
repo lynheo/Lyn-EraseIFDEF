@@ -20,6 +20,7 @@ func readFileLines(fileName string) []string {
 
 	file, err := os.Open(fileName)
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
 	defer file.Close()
@@ -66,10 +67,13 @@ func doProcessSource(fileName string, procInfo ProcInfo) {
 	lines := readFileLines(fileName)
 
 	status := Off
+	var depthstack DepthStack
 
 	output := make([]string, 0, len(lines))
 	for _, line := range lines {
-		line = strings.TrimRightFunc(line, unicode.IsSpace)
+		originalLine := strings.TrimRightFunc(line, unicode.IsSpace)
+		line = strings.TrimSpace(originalLine)
+
 		if len(line) == 0 {
 			output = append(output, line)
 			continue
@@ -85,32 +89,41 @@ func doProcessSource(fileName string, procInfo ProcInfo) {
 
 			switch preprocessor {
 			case "#ifdef":
+				depthstack.Push(variable)
 				if variable == procInfo.deleteDefine {
 					status = Use
 					continue
 				}
 			case "#ifndef":
+				depthstack.Push(variable)
 				if variable == procInfo.deleteDefine {
 					status = Remove
 					continue
 				}
+			case "#if":
+				depthstack.Push(variable)
 			case "#else":
-				if status == Use {
-					status = Remove
-					continue
-				} else if status == Remove {
-					status = Use
+				if depthstack.Top() == procInfo.deleteDefine {
+					if status == Use {
+						status = Remove
+						continue
+					} else if status == Remove {
+						status = Use
+					}
 				}
 			case "#endif":
-				if status == Remove || status == Use {
+				topValue := depthstack.Top()
+				depthstack.Pop()
+				if topValue == procInfo.deleteDefine {
 					status = Off
 					continue
 				}
 			}
 		}
+
 		switch status {
 		case Use, Off:
-			output = append(output, line)
+			output = append(output, originalLine)
 		}
 	}
 
